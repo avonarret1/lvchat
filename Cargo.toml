@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "lvchat-core",
+    "lvchat-server",
+    "lvchat-client",
+]
+
