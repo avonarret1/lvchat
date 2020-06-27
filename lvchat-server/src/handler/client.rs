@@ -81,7 +81,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
         match message {
             Message::User(message) => match message {
                 UserMessage::Auth { nick } => {
-                    if let Some(other_user) = state.get_user_by_name(&nick) {
+                    if let Some(other_user) = state.get_client_by_name(&nick) {
                         client
                             .stream
                             .lock()
@@ -118,7 +118,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
         match message {
             Message::User(message) => match message {
                 UserMessage::Auth { nick } => {
-                    if state.get_user_by_name(&nick).is_some() {
+                    if state.get_client_by_name(&nick).is_some() {
                         client
                             .stream
                             .lock()

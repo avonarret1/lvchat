@@ -70,7 +70,7 @@ fn handle_incoming_client(state: &State, mut client_stream: TcpStream, client_tx
 
     log::info!("Processing client: {}", addr.ip());
 
-    let client = match state.get_user_by_addr(&addr) {
+    let client = match state.get_client_by_addr(&addr) {
         Some(client) => {
             let mut stream = client.stream.lock();
 

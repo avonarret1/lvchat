@@ -24,20 +24,20 @@ impl State {
 }
 
 impl State {
-    pub fn get_user_by_addr(&self, addr: &SocketAddr) -> Option<Client> {
-        for user in self.clients.lock().iter() {
-            if user.user.read().addr().ip() == addr.ip() {
-                return Some(user.clone());
+    pub fn get_client_by_addr(&self, addr: &SocketAddr) -> Option<Client> {
+        for client in self.clients.lock().iter() {
+            if client.user.read().addr().ip() == addr.ip() {
+                return Some(client.clone());
             }
         }
 
         None
     }
 
-    pub fn get_user_by_name(&self, name: &str) -> Option<Client> {
-        for user in self.clients.lock().iter() {
-            if user.user.read().nick() == Some(name) {
-                return Some(user.clone());
+    pub fn get_client_by_name(&self, name: &str) -> Option<Client> {
+        for client in self.clients.lock().iter() {
+            if client.user.read().nick() == Some(name) {
+                return Some(client.clone());
             }
         }
 
