@@ -24,7 +24,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn init() -> Self {
+    pub fn new() -> Self {
         cfg_if::cfg_if! {
             if #[cfg(debug_assertions)] {
                 Config {
