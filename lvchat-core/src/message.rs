@@ -37,12 +37,9 @@ pub enum Server {
         message: String,
     },
 
-    UserJoined {
+    Refer {
         user: String,
-    },
-    UserLeft {
-        user: String,
-        message: Option<String>,
+        message: User,
     },
 
     UserList {
