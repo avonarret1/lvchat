@@ -33,7 +33,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
                 Err(e) => match e.kind() {
                     ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
-                        log::warn!("Client disconnected. Reason: {}", e);
+                        log::warn!("Client disconnected forcefully. Reason: {}", e);
 
                         //let _ = sender.send(Event::Quit(stream.clone()));
 
@@ -76,37 +76,52 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
     log::info!("Client disconnected");
 }
 
+fn broadcast_user_message(state: &State, client: &Client, message: &UserMessage) {
+    let refer = Message::Server(ServerMessage::Refer {
+        user: client.user.read().nick_unchecked().to_owned(),
+        message: message.clone(),
+    });
+
+    for client in  get_all_clients_with_exception(&state, &[client]) {
+        let _ = client.stream.lock().write(&refer.to_bytes());
+    }
+}
+
 fn handle_message(state: &State, client: &Client, message: Message, sender: Sender<Event>) {
     if client.user.read().is_ghost() {
-        match message {
-            Message::User(message) => match message {
-                UserMessage::Auth { nick } => {
-                    if let Some(other_user) = state.get_client_by_name(&nick) {
-                        client
-                            .stream
-                            .lock()
-                            .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
-                    } else {
-                        log::info!("User is now authenticated as {}", nick);
+        match &message {
+            Message::User(message) => {
+                match message {
+                    UserMessage::Auth { nick } => {
+                        if let Some(other_user) = state.get_client_by_name(&nick) {
+                            client
+                                .stream
+                                .lock()
+                                .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
+                        } else {
+                            log::info!("User is now authenticated as {}", nick);
 
-                        let user = client.user.read().clone();
+                            let user = client.user.read().clone();
 
-                        *client.user.write() = lvchat_core::User::Authenticated {
-                            nick,
-                            addr: *user.addr(),
-                        };
+                            *client.user.write() = lvchat_core::User::Authenticated {
+                                nick: nick.clone(),
+                                addr: *user.addr(),
+                            };
 
-                        sender.send(Event::Authenticated(client.clone()));
+                            sender.send(Event::Authenticated(client.clone()));
+                        }
+                    }
+
+                    _ => {
+                        log::info!(
+                            "User ({}) send message without being authenticated: {:#?}",
+                            client.user.read().addr(),
+                            message,
+                        );
                     }
                 }
 
-                _ => {
-                    log::info!(
-                        "User ({}) send message without being authenticated: {:#?}",
-                        client.user.read().addr(),
-                        message,
-                    );
-                }
+                broadcast_user_message(state, client, message);
             },
 
             _ => {
@@ -116,67 +131,72 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
         }
     } else {
         match message {
-            Message::User(message) => match message {
-                UserMessage::Auth { nick } => {
-                    if state.get_client_by_name(&nick).is_some() {
-                        client
-                            .stream
-                            .lock()
-                            .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
-                    } else {
-                        let mut user = client.user.write();
+            Message::User(message) => {
+                match &message {
+                    UserMessage::Auth { nick } => {
+                        if state.get_client_by_name(&nick).is_some() {
+                            client
+                                .stream
+                                .lock()
+                                .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
+                        } else {
+                            let mut user = client.user.write();
 
-                        log::info!(
+                            log::info!(
                             "User {} ({}) changed nick to {}",
                             user.nick_unchecked(),
                             user.addr().ip(),
                             nick
                         );
 
-                        *user = User::Authenticated {
-                            addr: user.addr().clone(),
-                            nick,
-                        };
+                            *user = User::Authenticated {
+                                addr: user.addr().clone(),
+                                nick: nick.clone(),
+                            };
+                        }
                     }
-                }
 
-                UserMessage::Leave { message } => {
-                    log::info!(
+                    UserMessage::Leave { message } => {
+                        log::info!(
                         "User {} is leaving ({:?})",
                         client.user.read().nick_unchecked(),
                         message
                     );
 
-                    let mut clients = state.clients.lock();
-                    let client_pos = clients
-                        .iter()
-                        .position(|client_x| client == client_x)
-                        .expect("Client in list");
+                        let mut clients = state.clients.lock();
+                        let client_pos = clients
+                            .iter()
+                            .position(|client_x| client == client_x)
+                            .expect("Client in list");
 
-                    clients.remove(client_pos);
-                }
+                        clients.remove(client_pos);
+                    }
 
-                UserMessage::RequestUserList => {
-                    let current_user = client.user.read();
-                    let mut user_list = vec![];
+                    UserMessage::RequestUserList => {
+                        let users = get_all_clients_with_exception(&state, &[client])
+                            .into_iter()
+                            .filter_map(|client| client.user.read().nick().map(ToOwned::to_owned))
+                            .collect::<Vec<_>>();
 
-                    for other_client in state.clients.lock().iter() {
-                        let other_user = other_client.user.read();
+                        let response = Message::Server(ServerMessage::UserList { users });
+                        client.stream.lock().write(&response.to_bytes());
+                    }
 
-                        if other_user.is_authenticated() && current_user.nick() != other_user.nick()
-                        {
-                            user_list.push(other_user.nick_unchecked().to_string());
+                    UserMessage::Text { message } => {
+                        let refer = Message::Server(ServerMessage::Refer {
+                            user: client.user.read().nick_unchecked().to_owned(),
+                            message: UserMessage::Text { message: message.clone() }
+                        });
+
+                        for client in  get_all_clients_with_exception(&state, &[client]) {
+                            let _ = client.stream.lock().write(&refer.to_bytes());
                         }
                     }
 
-                    drop(current_user);
-
-                    let response = Message::Server(ServerMessage::UserList { users: user_list });
-                    client.stream.lock().write(&response.to_bytes());
+                    UserMessage::Voice { stream: _ } => {}
                 }
 
-                UserMessage::Text { message: _ } => {}
-                UserMessage::Voice { stream: _ } => {}
+                broadcast_user_message(state, client, &message);
             },
 
             _ => {
@@ -185,4 +205,18 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             }
         }
     }
+}
+
+fn get_all_clients_with_exception(state: &State, excpetions: &[&Client]) -> Vec<Client> {
+    let mut clients = vec![];
+
+    for client in state.clients.lock().iter() {
+        if excpetions.contains(&client) {
+            continue
+        }
+
+        clients.push(client.clone());
+    }
+
+    clients
 }
