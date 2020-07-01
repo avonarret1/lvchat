@@ -1,5 +1,7 @@
 use std::net::SocketAddr;
 
+// TODO: Make this work for both clients and the server. Clients won't have an addr.
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum User {
     Ghost { addr: SocketAddr },

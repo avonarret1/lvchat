@@ -33,20 +33,11 @@ pub enum Server {
     // Shutdown { message: Option<String> },
 
     // MessageOfTheDay { message: Option<String> },
-    Notice {
-        message: String,
-    },
+    Notice { message: String },
 
-    Refer {
-        user: String,
-        message: User,
-    },
+    Refer { user: String, message: User },
 
-    UserList {
-        users: Vec<String>,
-    },
-
-    Error(Error),
+    UserList { users: Vec<String> },
 }
 
 #[repr(C)]
@@ -66,6 +57,24 @@ impl Message {
 
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         bincode2::deserialize(data).ok()
+    }
+}
+
+impl From<User> for Message {
+    fn from(user: User) -> Self {
+        Self::User(user)
+    }
+}
+
+impl From<Server> for Message {
+    fn from(server: Server) -> Self {
+        Self::Server(server)
+    }
+}
+
+impl From<Error> for Message {
+    fn from(error: Error) -> Self {
+        Self::Error(error)
     }
 }
 
