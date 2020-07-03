@@ -20,6 +20,10 @@ pub struct View {
 }
 
 impl View {
+    pub fn clear(&mut self) {
+        self.terminal.clear();
+    }
+
     pub fn update(&mut self, state: &State) {
         let _ = self.terminal.set_cursor(
             state.input.read().len() as u16,
@@ -28,8 +32,6 @@ impl View {
                 .map(|size| size.height - 2)
                 .unwrap_or_default(),
         );
-
-        self.terminal.clear();
     }
 
     pub fn render(&mut self, state: &State) {
@@ -57,10 +59,10 @@ impl View {
         let message_input_view =
             Paragraph::new(message_para_input.iter()).block(Block::default().borders(Borders::TOP));
 
-        let _ = self.terminal.draw(|mut frame| {
+        let _ = self.terminal.draw(move |mut frame| {
             let (bottom, top) = {
                 let mut layout = Layout::default()
-                    .constraints([Constraint::Min(0), Constraint::Max(2)])
+                    .constraints([Constraint::Min(0), Constraint::Max(3)])
                     .direction(Direction::Vertical)
                     .split(Rect {
                         x: 0,
@@ -72,7 +74,7 @@ impl View {
                 (layout.pop().unwrap(), layout.pop().unwrap())
             };
 
-            let (top_left, top_right) = {
+            let (top_right, top_left) = {
                 let mut layout = Layout::default()
                     .constraints([Constraint::Ratio(1, 6), Constraint::Ratio(5, 6)])
                     .direction(Direction::Horizontal)

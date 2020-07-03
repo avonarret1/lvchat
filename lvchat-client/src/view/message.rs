@@ -6,7 +6,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new<S, T>(source: S, text: T) -> Self
+    pub fn user<S, T>(source: S, text: T) -> Self
     where
         S: AsRef<str>,
         T: AsRef<str>,
@@ -17,10 +17,18 @@ impl Message {
             text: text.as_ref().to_string(),
         }
     }
+
+    pub fn notice<T: AsRef<str>>(text: T) -> Self {
+        Self {
+            ts: chrono::Utc::now(),
+            source: format!("NOTICE ***"),
+            text: text.as_ref().to_string(),
+        }
+    }
 }
 
 impl From<(&str, &str)> for Message {
     fn from(data: (&str, &str)) -> Self {
-        Self::new(data.0, data.1)
+        Self::user(data.0, data.1)
     }
 }

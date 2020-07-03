@@ -34,7 +34,7 @@ fn main() {
         io::server::capture(state.stream.clone())
     ];
 
-    view.update(&state);
+    view.clear();
 
     'main: loop {
         // balance load. Rendering at least each 750ms(?) or so to make responses smoother to view
@@ -56,6 +56,7 @@ fn main() {
             }
         }
 
+        view.update(&state);
         view.render(&state);
     }
 }
@@ -128,6 +129,8 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
                 message: input.trim().to_string(),
             });
 
+            state.messages.write().push(view::Message::user(&state.nick, input.trim()));
+
             state.input.write().clear();
         }
     }
@@ -136,7 +139,7 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
 fn handle_server_message(state: &State, message: Message) {
     use lvchat_core::*;
 
-    match dbg!(message) {
+    match message {
         Message::User(user_message) => {
             todo!("Reject")
         }
@@ -145,8 +148,26 @@ fn handle_server_message(state: &State, message: Message) {
             ServerMessage::Notice { .. } => {}
             ServerMessage::Refer { user, message: user_message } => {
                 match user_message {
-                    UserMessage::Auth { .. } => {}
-                    UserMessage::Leave { .. } => {}
+                    UserMessage::Auth { nick } => {
+                        if user != nick {
+                            state.messages.write().push(view::Message::notice(format!("{} changed nick to {}", user, nick)));
+
+                            for user in state.users.write().iter_mut() {
+                                if user == &nick {
+                                    *user = nick.clone();
+                                }
+                            }
+                        } else {
+                            state.messages.write().push(view::Message::notice(format!("User joined: {}", nick)));
+
+                            state.users.write().push(nick);
+                        }
+                    }
+
+                    UserMessage::Leave { message } => {
+                        state.messages.write().push(view::Message::notice(format!("User left: {}", user)));
+                    }
+
                     UserMessage::RequestUserList => {}
                     UserMessage::Text { .. } => {}
                     UserMessage::Voice { .. } => {}

@@ -20,7 +20,7 @@ impl State {
         State {
             nick: nick.to_string(),
 
-            users: Arc::new(RwLock::new(vec![])),
+            users: Arc::new(RwLock::new(vec![nick.to_string()])),
             messages: Arc::new(RwLock::new(vec![])),
 
             input: Arc::new(RwLock::new(String::new())),
