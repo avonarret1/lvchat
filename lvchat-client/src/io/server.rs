@@ -39,7 +39,7 @@ pub fn capture(stream: Arc<Mutex<TcpStream>>) -> Receiver<Event> {
                     Some(message) => {
                         tx.send(message.into());
 
-                        let _ = data.drain(..line.len());
+                        data.drain(..line.len());
                         data = data.trim().to_owned();
                     }
                     None => {

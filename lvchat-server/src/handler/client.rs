@@ -90,7 +90,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             Message::User(message) => {
                 match message {
                     UserMessage::Auth { nick } => {
-                        if let Some(other_user) = state.get_client_by_name(&nick) {
+                        if state.get_client_by_name(&nick).is_some() || nick == "NOTICE" {
                             client
                                 .stream
                                 .lock()

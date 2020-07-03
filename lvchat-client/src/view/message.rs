@@ -21,7 +21,7 @@ impl Message {
     pub fn notice<T: AsRef<str>>(text: T) -> Self {
         Self {
             ts: chrono::Utc::now(),
-            source: format!("NOTICE ***"),
+            source: format!("NOTICE"),
             text: text.as_ref().to_string(),
         }
     }

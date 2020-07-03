@@ -3,8 +3,6 @@ use flume::{Receiver, TryRecvError};
 use lvchat_core::message::{Error, Server, User};
 use lvchat_core::Message;
 
-pub struct Handler(Receiver<Event>);
-
 #[derive(Debug)]
 pub enum Event {
     UserInput(UserInputState),

@@ -2,11 +2,14 @@ use std::{net::TcpStream, sync::Arc};
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::view::{Message, User};
+use crate::{
+    config::Config,
+    view::{Message, User}
+};
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub nick: String,
+    pub config: Arc<Config>,
 
     pub users: Arc<RwLock<Vec<User>>>,
     pub messages: Arc<RwLock<Vec<Message>>>,
@@ -16,11 +19,14 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(nick: &str, stream: TcpStream) -> Self {
-        State {
-            nick: nick.to_string(),
+    pub fn new(config: Config, stream: TcpStream) -> Self {
+        let nick = config.nick.clone();
+        let config = Arc::new(config);
 
-            users: Arc::new(RwLock::new(vec![nick.to_string()])),
+        State {
+            config,
+
+            users: Arc::new(RwLock::new(vec![nick])),
             messages: Arc::new(RwLock::new(vec![])),
 
             input: Arc::new(RwLock::new(String::new())),

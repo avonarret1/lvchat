@@ -26,7 +26,7 @@ fn main() {
 
     let stream = connect(&config);
 
-    let state = State::new(&config.nick, stream);
+    let state = State::new(config, stream);
     let mut view = View::default();
 
     let events = [
@@ -38,7 +38,7 @@ fn main() {
 
     'main: loop {
         // balance load. Rendering at least each 750ms(?) or so to make responses smoother to view
-        'events: for event_rx in &events {
+        for event_rx in &events {
             match event_rx.try_recv() {
                 Ok(event) => match event {
                     Event::UserInput(input) => {
@@ -98,14 +98,10 @@ fn connect(config: &Config) -> TcpStream {
     );
 
     match TcpStream::connect((config.host.as_str(), config.port)) {
-        Ok(mut stream) => {
+        Ok(stream) => {
             println!("Connected.");
 
-            Message::send(&mut stream, UserMessage::Auth {
-                nick: config.nick.clone()
-            });
-
-            return stream;
+            stream
         }
 
         Err(e) => {
@@ -129,7 +125,7 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
                 message: input.trim().to_string(),
             });
 
-            state.messages.write().push(view::Message::user(&state.nick, input.trim()));
+            state.messages.write().push(view::Message::user(&state.config.nick, input.trim()));
 
             state.input.write().clear();
         }
@@ -145,7 +141,14 @@ fn handle_server_message(state: &State, message: Message) {
         }
 
         Message::Server(server_message) => match server_message {
-            ServerMessage::Notice { .. } => {}
+            ServerMessage::Auth => {
+                Message::send(&mut *state.stream.lock(), UserMessage::Auth { nick: state.config.nick.clone() });
+            }
+
+            ServerMessage::Notice { message } => {
+                state.messages.write().push(view::Message::notice(message));
+            }
+
             ServerMessage::Refer { user, message: user_message } => {
                 match user_message {
                     UserMessage::Auth { nick } => {
@@ -176,15 +179,21 @@ fn handle_server_message(state: &State, message: Message) {
                 }
             }
             ServerMessage::UserList { mut users } => {
-                users.insert(0, state.nick.clone());
+                users.insert(0, state.config.nick.clone());
 
                 *state.users.write() = users;
             }
         }
 
         Message::Error(error_message) => match error_message {
-            ErrorMessage::AlreadyConnected => {}
-            ErrorMessage::NickNameInUse => {}
+            ErrorMessage::AlreadyConnected => {
+                eprintln!("Already connected. Only one client per IP address allowed.");
+                std::process::exit(0);
+            }
+            ErrorMessage::NickNameInUse => {
+                eprintln!("Someone with that nickname is already connected.");
+                std::process::exit(0);
+            }
         }
     }
 }

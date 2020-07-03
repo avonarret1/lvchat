@@ -52,11 +52,14 @@ pub fn handle(state: State, client_queue_rx: Receiver<TcpStream>) {
 fn handle_event(state: &State, event: Event) {
     match event {
         Event::Accepted(client) => {
-            Message::send(&mut *client.stream.lock(), ServerMessage::Notice {
-                message: format!("Welcome! Please authenticate yourself!"),
-            });
+            log::debug!("[Client: {}] Sending authentication request", client);
+
+            Message::send(&mut *client.stream.lock(), ServerMessage::Auth);
         }
         Event::Authenticated(client) => {
+            log::debug!("[Client: {}] Sending welcome notice", client);
+            Message::send(&mut *client.stream.lock(), ServerMessage::Notice { message: format!("Welcome!") });
+
             let users = state.clients
                 .lock()
                 .iter()
@@ -64,11 +67,15 @@ fn handle_event(state: &State, event: Event) {
                 .filter(|user| user != client.user.read().nick_unchecked())
                 .collect::<Vec<_>>();
 
+            log::debug!("[Client: {}] Sending user list: {:#?}", client, users);
+
             Message::send(&mut *client.stream.lock(), ServerMessage::UserList {
                 users,
             });
         }
         Event::Dropped(client) => {
+            log::debug!("[Client: {}] Dropped", client);
+
             let mut clients = state.clients.lock();
             let pos = clients.iter().position(|client_i| {
                 client_i == &client

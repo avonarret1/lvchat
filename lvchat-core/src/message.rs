@@ -39,6 +39,8 @@ pub enum Server {
     // MessageOfTheDay { message: Option<String> },
     Notice { message: String },
 
+    Auth,
+
     Refer { user: String, message: User },
 
     UserList { users: Vec<String> },
