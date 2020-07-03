@@ -52,13 +52,22 @@ pub fn handle(state: State, client_queue_rx: Receiver<TcpStream>) {
 fn handle_event(state: &State, event: Event) {
     match event {
         Event::Accepted(client) => {
-            let notice = Message::Server(ServerMessage::Notice {
+            Message::send(&mut *client.stream.lock(), ServerMessage::Notice {
                 message: format!("Welcome! Please authenticate yourself!"),
             });
-
-            client.stream.lock().write(&notice.to_bytes());
         }
-        Event::Authenticated(client) => {}
+        Event::Authenticated(client) => {
+            let users = state.clients
+                .lock()
+                .iter()
+                .filter_map(|client| client.user.read().nick().map(ToOwned::to_owned))
+                .filter(|user| user != client.user.read().nick_unchecked())
+                .collect::<Vec<_>>();
+
+            Message::send(&mut *client.stream.lock(), ServerMessage::UserList {
+                users,
+            });
+        }
         Event::Dropped(client) => {
             let mut clients = state.clients.lock();
             let pos = clients.iter().position(|client_i| {
