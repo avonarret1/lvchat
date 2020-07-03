@@ -59,7 +59,14 @@ fn handle_event(state: &State, event: Event) {
             client.stream.lock().write(&notice.to_bytes());
         }
         Event::Authenticated(client) => {}
-        Event::Dropped(client) => {}
+        Event::Dropped(client) => {
+            let mut clients = state.clients.lock();
+            let pos = clients.iter().position(|client_i| {
+                client_i == &client
+            }).unwrap();
+
+            clients.remove(pos);
+        }
     }
 }
 
