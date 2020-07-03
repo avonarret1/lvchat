@@ -22,22 +22,20 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
     sender.send(Event::Accepted(client.clone()));
 
-    loop {
+    'main: loop {
         if let Some(mut client_stream) = client.stream.try_lock() {
             match client_stream.read(&mut buffer) {
-                Ok(0) => yield_now(),
+                Ok(0) => (),
 
-                Ok(_) => {
-                    data.extend_from_slice(&buffer);
+                Ok(size) => {
+                    data.extend_from_slice(&buffer[0..size]);
                 }
 
                 Err(e) => match e.kind() {
                     ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
                         log::warn!("Client disconnected forcefully. Reason: {}", e);
 
-                        //let _ = sender.send(Event::Quit(stream.clone()));
-
-                        break;
+                        break 'main;
                     }
 
                     ErrorKind::WouldBlock => (),
@@ -54,9 +52,8 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
         }
 
         if let Some(eol) = data.windows(2).position(|w| w == b"\r\n") {
-            let raw = data.drain(..eol).collect::<Vec<_>>();
-            let message = Message::from_bytes(&raw);
-            let _ = data.drain(..2);
+            let raw = data.drain(..eol+2).collect::<Vec<_>>();
+            let message = Message::from_bytes(&raw[..eol]);
 
             if let Some(message) = message {
                 log::info!("Received message: {:#?}", message);
@@ -73,7 +70,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
     sender.send(Event::Dropped(client));
 
-    log::info!("Client disconnected");
+    log::trace!("Stopping client handler thread");
 }
 
 fn broadcast_user_message(state: &State, client: &Client, message: &UserMessage) {
@@ -82,7 +79,7 @@ fn broadcast_user_message(state: &State, client: &Client, message: &UserMessage)
         message: message.clone(),
     });
 
-    for client in  get_all_clients_with_exception(&state, &[client]) {
+    for client in get_all_clients_with_exception(&state, &[client]) {
         let _ = client.stream.lock().write(&refer.to_bytes());
     }
 }
@@ -122,7 +119,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 }
 
                 broadcast_user_message(state, client, message);
-            },
+            }
 
             _ => {
                 log::warn!("Invalid message received: {:#?}", message);
@@ -143,11 +140,11 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                             let mut user = client.user.write();
 
                             log::info!(
-                            "User {} ({}) changed nick to {}",
-                            user.nick_unchecked(),
-                            user.addr().ip(),
-                            nick
-                        );
+                                "User {} ({}) changed nick to {}",
+                                user.nick_unchecked(),
+                                user.addr().ip(),
+                                nick
+                            );
 
                             *user = User::Authenticated {
                                 addr: user.addr().clone(),
@@ -158,10 +155,10 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
 
                     UserMessage::Leave { message } => {
                         log::info!(
-                        "User {} is leaving ({:?})",
-                        client.user.read().nick_unchecked(),
-                        message
-                    );
+                            "User {} is leaving ({:?})",
+                            client.user.read().nick_unchecked(),
+                            message
+                        );
 
                         let mut clients = state.clients.lock();
                         let client_pos = clients
@@ -185,10 +182,12 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                     UserMessage::Text { message } => {
                         let refer = Message::Server(ServerMessage::Refer {
                             user: client.user.read().nick_unchecked().to_owned(),
-                            message: UserMessage::Text { message: message.clone() }
+                            message: UserMessage::Text {
+                                message: message.clone(),
+                            },
                         });
 
-                        for client in  get_all_clients_with_exception(&state, &[client]) {
+                        for client in get_all_clients_with_exception(&state, &[client]) {
                             let _ = client.stream.lock().write(&refer.to_bytes());
                         }
                     }
@@ -197,7 +196,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 }
 
                 broadcast_user_message(state, client, &message);
-            },
+            }
 
             _ => {
                 log::warn!("Invalid message received: {:#?}", message);
@@ -212,7 +211,7 @@ fn get_all_clients_with_exception(state: &State, excpetions: &[&Client]) -> Vec<
 
     for client in state.clients.lock().iter() {
         if excpetions.contains(&client) {
-            continue
+            continue;
         }
 
         clients.push(client.clone());
