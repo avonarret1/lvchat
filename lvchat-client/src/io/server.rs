@@ -24,8 +24,9 @@ pub fn capture(stream: Arc<Mutex<TcpStream>>) -> Receiver<Event> {
             match stream.read_to_string(&mut data) {
                 Ok(len) => {}
                 Err(e) => match e.kind() {
-                    ErrorKind::ConnectionAborted | ErrorKind::NotConnected | ErrorKind::ConnectionReset => {
+                    ErrorKind::ConnectionAborted | ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
                         tx.send(Event::Disconnected);
+                        return;
                     }
                     _ => (),
                 },
