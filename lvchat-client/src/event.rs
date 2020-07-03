@@ -1,4 +1,4 @@
-use crate::{input::user::State as UserInputState, state::State};
+use crate::{io::user::State as UserInputState, state::State};
 use flume::{Receiver, TryRecvError};
 use lvchat_core::message::{Error, Server, User};
 use lvchat_core::Message;
