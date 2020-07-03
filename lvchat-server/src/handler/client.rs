@@ -129,6 +129,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
     } else {
         match message {
             Message::User(message) => {
+                let mut broadcast = true;
+
                 match &message {
                     UserMessage::Auth { nick } => {
                         if state.get_client_by_name(&nick).is_some() {
@@ -177,25 +179,20 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
 
                         let response = Message::Server(ServerMessage::UserList { users });
                         client.stream.lock().write(&response.to_bytes());
+
+                        broadcast = false;
                     }
 
                     UserMessage::Text { message } => {
-                        let refer = Message::Server(ServerMessage::Refer {
-                            user: client.user.read().nick_unchecked().to_owned(),
-                            message: UserMessage::Text {
-                                message: message.clone(),
-                            },
-                        });
 
-                        for client in get_all_clients_with_exception(&state, &[client]) {
-                            let _ = client.stream.lock().write(&refer.to_bytes());
-                        }
                     }
 
                     UserMessage::Voice { stream: _ } => {}
                 }
 
-                broadcast_user_message(state, client, &message);
+                if broadcast {
+                    broadcast_user_message(state, client, &message);
+                }
             }
 
             _ => {
