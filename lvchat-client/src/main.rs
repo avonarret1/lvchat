@@ -175,7 +175,11 @@ fn handle_server_message(state: &State, message: Message) {
                     UserMessage::Voice { .. } => {}
                 }
             }
-            ServerMessage::UserList { .. } => {}
+            ServerMessage::UserList { mut users } => {
+                users.insert(0, state.nick.clone());
+
+                *state.users.write() = users;
+            }
         }
 
         Message::Error(error_message) => match error_message {
