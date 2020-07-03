@@ -1,3 +1,7 @@
+use std::{
+    io::{self, Write},
+    net::TcpStream,
+};
 use serde::{Deserialize, Serialize};
 
 /// Enumeration of the network protocol lvchat is using
@@ -57,6 +61,17 @@ impl Message {
 
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         bincode2::deserialize(data).ok()
+    }
+}
+
+impl Message {
+    pub fn send<M: Into<Self>>(stream: &mut TcpStream, message: M) -> io::Result<()> {
+        let message: Self = message.into();
+        let mut data = message.to_bytes();
+
+        data.extend_from_slice(&[b'\r', b'\n']);
+
+        stream.write_all(&data).map(|_| ())
     }
 }
 
