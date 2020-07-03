@@ -42,3 +42,17 @@ impl User {
         }
     }
 }
+
+impl std::fmt::Display for User {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Authenticated { nick, addr } => {
+                write!(f, "{} @ {}", nick, addr.ip())
+            }
+
+            Self::Ghost { addr } => {
+                write!(f, "{}", addr.ip())
+            }
+        }
+    }
+}

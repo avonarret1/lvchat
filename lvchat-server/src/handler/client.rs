@@ -18,7 +18,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
     let mut buffer = [0u8; 1024];
 
     log::trace!("Started client handler thread");
-    log::info!("Client connected.");
+    log::info!("[Client: {}] Connected.", client);
 
     sender.send(Event::Accepted(client.clone()));
 
@@ -33,7 +33,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
                 Err(e) => match e.kind() {
                     ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
-                        log::warn!("Client disconnected forcefully. Reason: {}", e);
+                        log::warn!("[Client: {}] Disconnected forcefully. Reason: {}", client, e);
 
                         break 'main;
                     }
@@ -41,7 +41,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
                     ErrorKind::WouldBlock => (),
 
                     _ => {
-                        log::warn!("Error was not processed: {}", e);
+                        log::warn!("[Client: {}] Error was not processed: {}", client, e);
                     }
                 },
             }
@@ -56,7 +56,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
             let message = Message::from_bytes(&raw[..eol]);
 
             if let Some(message) = message {
-                log::info!("Received message: {:#?}", message);
+                log::info!("[Client: {}] Received message: {:#?}", client, message);
 
                 handle_message(&state, &client, message, sender.clone());
 
@@ -96,7 +96,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                                 .lock()
                                 .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
                         } else {
-                            log::info!("User is now authenticated as {}", nick);
+                            log::info!("[Client: {}] Now authenticated as {}", client, nick);
 
                             let user = client.user.read().clone();
 
@@ -111,8 +111,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
 
                     _ => {
                         log::info!(
-                            "User ({}) send message without being authenticated: {:#?}",
-                            client.user.read().addr(),
+                            "[Client: {}] Sent message without being authenticated: {:#?}",
+                            client,
                             message,
                         );
                     }
@@ -122,8 +122,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             }
 
             _ => {
-                log::warn!("Invalid message received: {:#?}", message);
-                log::warn!("Skipping.");
+                log::warn!("[Client: {}] Invalid message received: {:#?}", client, message);
+                log::warn!("[Client: {}] Skipping.", client);
             }
         }
     } else {
@@ -139,14 +139,13 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                                 .lock()
                                 .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
                         } else {
-                            let mut user = client.user.write();
-
                             log::info!(
-                                "User {} ({}) changed nick to {}",
-                                user.nick_unchecked(),
-                                user.addr().ip(),
+                                "[Client: {}] Changing nick to {}",
+                                client,
                                 nick
                             );
+
+                            let mut user = client.user.write();
 
                             *user = User::Authenticated {
                                 addr: user.addr().clone(),
@@ -157,8 +156,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
 
                     UserMessage::Leave { message } => {
                         log::info!(
-                            "User {} is leaving ({:?})",
-                            client.user.read().nick_unchecked(),
+                            "[Client: {}] Is leaving ({:?})",
+                            client,
                             message
                         );
 
@@ -196,8 +195,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             }
 
             _ => {
-                log::warn!("Invalid message received: {:#?}", message);
-                log::warn!("Skipping.");
+                log::warn!("[Client: {}] Invalid message received: {:#?}", client, message);
+                log::warn!("[Client: {}] Skipping.", client);
             }
         }
     }

@@ -28,3 +28,9 @@ impl PartialEq<Self> for Client {
 }
 
 impl Eq for Client {}
+
+impl std::fmt::Display for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.user.read())
+    }
+}
