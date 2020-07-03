@@ -20,34 +20,35 @@ pub fn capture(stream: Arc<Mutex<TcpStream>>) -> Receiver<Event> {
     spawn(move || {
         let mut data = String::new();
 
-        if let Some(mut stream) = stream.try_lock() {
-            match stream.read_to_string(&mut data) {
-                Ok(len) => {}
-                Err(e) => match e.kind() {
-                    ErrorKind::ConnectionAborted | ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
-                        tx.send(Event::Disconnected);
-                        return;
+        loop {
+            if let Some(mut stream) = stream.try_lock() {
+                match stream.read_to_string(&mut data) {
+                    Ok(len) => {}
+                    Err(e) => match e.kind() {
+                        ErrorKind::ConnectionAborted | ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
+                            tx.send(Event::Disconnected);
+                            return;
+                        }
+                        _ => (),
+                    },
+                }
+            }
+
+            if let Some(line) = data.lines().next() {
+                match Message::from_bytes(&line.bytes().collect::<Vec<_>>()) {
+                    Some(message) => {
+                        tx.send(message.into());
+
+                        let _ = data.drain(..line.len());
+                        data = data.trim().to_owned();
                     }
-                    _ => (),
-                },
-            }
-        }
-
-        if let Some(line) = data.lines().next() {
-            match Message::from_bytes(&line.bytes().collect::<Vec<_>>()) {
-                Some(message) => {
-                    tx.send(message.into());
-
-                    let _ = data.drain(..line.len());
-                    data = data.trim().to_owned();
+                    None => {
+                        yield_now()
+                    }
                 }
-                None => {
-                    yield_now()
-                }
+            } else {
+                yield_now()
             }
-
-        } else {
-            yield_now()
         }
     });
 

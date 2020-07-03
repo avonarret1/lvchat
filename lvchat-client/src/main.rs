@@ -101,7 +101,7 @@ fn connect(config: &Config) -> TcpStream {
             println!("Connected.");
 
             Message::send(&mut stream, UserMessage::Auth {
-                nick: format!("avonarret"),
+                nick: config.nick.clone()
             });
 
             return stream;
@@ -137,22 +137,28 @@ fn handle_server_message(state: &State, message: Message) {
     use lvchat_core::*;
 
     match dbg!(message) {
-        Message::User(user_message) => match user_message {
-            UserMessage::Auth { .. } => {}
-            UserMessage::Leave { .. } => {}
-            UserMessage::RequestUserList => {}
-            UserMessage::Text { .. } => {}
-            UserMessage::Voice { .. } => {}
-        },
+        Message::User(user_message) => {
+            todo!("Reject")
+        }
+
         Message::Server(server_message) => match server_message {
             ServerMessage::Notice { .. } => {}
-            ServerMessage::Refer { .. } => {}
+            ServerMessage::Refer { user, message: user_message } => {
+                match user_message {
+                    UserMessage::Auth { .. } => {}
+                    UserMessage::Leave { .. } => {}
+                    UserMessage::RequestUserList => {}
+                    UserMessage::Text { .. } => {}
+                    UserMessage::Voice { .. } => {}
+                }
+            }
             ServerMessage::UserList { .. } => {}
-        },
+        }
+
         Message::Error(error_message) => match error_message {
             ErrorMessage::AlreadyConnected => {}
             ErrorMessage::NickNameInUse => {}
-        },
+        }
     }
 }
 
