@@ -2,7 +2,7 @@
 
 mod config;
 mod event;
-mod input;
+mod io;
 mod state;
 mod view;
 
@@ -17,7 +17,7 @@ use std::{
 
 use parking_lot::Mutex;
 use lvchat_core::{Message, UserMessage};
-use crate::{config::Config, state::State, view::View, event::Event, input::user::State as UserInputState};
+use crate::{config::Config, state::State, view::View, event::Event, io::user::State as UserInputState};
 
 fn main() {
     let config = Config::new();
@@ -26,26 +26,29 @@ fn main() {
 
     let stream = connect(&config);
 
-    let state = State::new(stream);
+    let state = State::new(&config.nick, stream);
     let mut view = View::default();
 
-    let events = &[
-        input::user::capture(),
-        input::server::capture(state.stream.clone())
+    let events = [
+        io::user::capture(),
+        io::server::capture(state.stream.clone())
     ];
 
-    loop {
-        for event_rx in events {
+    view.update(&state);
+
+    'main: loop {
+        // balance load. Rendering at least each 750ms(?) or so to make responses smoother to view
+        'events: for event_rx in &events {
             match event_rx.try_recv() {
                 Ok(event) => match event {
                     Event::UserInput(input) => {
                         handle_user_input(&state, input);
                     }
                     Event::Message(message) => {
-                        handle_server_message(&state, message)
+                        handle_server_message(&state, message);
                     },
                     Event::Disconnected => {
-                        break
+                        break 'main;
                     }
                 }
 
@@ -97,14 +100,9 @@ fn connect(config: &Config) -> TcpStream {
         Ok(mut stream) => {
             println!("Connected.");
 
-            let mut data = Message::User(UserMessage::Auth {
+            Message::send(&mut stream, UserMessage::Auth {
                 nick: format!("avonarret"),
-            })
-            .to_bytes();
-
-            data.extend_from_slice(b"\r\n");
-
-            let _ = stream.write(&data);
+            });
 
             return stream;
         }
@@ -126,11 +124,11 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
         UserInputState::Sent(input) => {
             *state.input.write() = input.clone();
 
-            let message: Message = UserMessage::Text {
-                message: input,
-            }.into();
+            Message::send(&mut *state.stream.lock(), UserMessage::Text {
+                message: input.trim().to_string(),
+            });
 
-            state.stream.lock().write(&message.to_bytes());
+            state.input.write().clear();
         }
     }
 }
@@ -138,7 +136,7 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
 fn handle_server_message(state: &State, message: Message) {
     use lvchat_core::*;
 
-    match message {
+    match dbg!(message) {
         Message::User(user_message) => match user_message {
             UserMessage::Auth { .. } => {}
             UserMessage::Leave { .. } => {}

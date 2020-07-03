@@ -6,6 +6,8 @@ use crate::view::{Message, User};
 
 #[derive(Debug, Clone)]
 pub struct State {
+    pub nick: String,
+
     pub users: Arc<RwLock<Vec<User>>>,
     pub messages: Arc<RwLock<Vec<Message>>>,
 
@@ -14,8 +16,10 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(stream: TcpStream) -> Self {
+    pub fn new(nick: &str, stream: TcpStream) -> Self {
         State {
+            nick: nick.to_string(),
+
             users: Arc::new(RwLock::new(vec![])),
             messages: Arc::new(RwLock::new(vec![])),
 

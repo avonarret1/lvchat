@@ -19,6 +19,9 @@ pub struct Config {
     #[structopt(short, long, default_value = "5050")]
     pub port: u16,
 
+    #[structopt(short, long)]
+    pub nick: String,
+
     #[structopt(long = "logs")]
     pub logs_path: Option<PathBuf>,
 }
@@ -32,6 +35,7 @@ impl Config {
                     debug: true,
                     quiet: false,
                     host: format!("127.0.0.1"),
+                    nick: format!("avonarret"),
                     port: 5050,
                     logs_path: None,//Some(PathBuf::from("logs")),
                 }
