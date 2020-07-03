@@ -169,7 +169,9 @@ fn handle_server_message(state: &State, message: Message) {
                     }
 
                     UserMessage::RequestUserList => {}
-                    UserMessage::Text { .. } => {}
+                    UserMessage::Text { message } => {
+                        state.messages.write().push(view::Message::user(user, message));
+                    }
                     UserMessage::Voice { .. } => {}
                 }
             }
