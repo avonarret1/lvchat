@@ -16,7 +16,9 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
     log::trace!("Started client handler thread");
     log::info!("[Client: {}] Connected.", client);
 
-    sender.send(Event::Accepted(client.clone())).expect("Client accepted");
+    sender
+        .send(Event::Accepted(client.clone()))
+        .expect("Client accepted");
 
     'main: loop {
         if let Some(mut client_stream) = client.stream.try_lock() {
@@ -29,7 +31,11 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
                 Err(e) => match e.kind() {
                     ErrorKind::ConnectionReset | ErrorKind::TimedOut => {
-                        log::warn!("[Client: {}] Disconnected forcefully. Reason: {}", client, e);
+                        log::warn!(
+                            "[Client: {}] Disconnected forcefully. Reason: {}",
+                            client,
+                            e
+                        );
 
                         break 'main;
                     }
@@ -56,7 +62,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
                 handle_message(&state, &client, message, sender.clone());
 
-                // let _ = sender.send(Event::Message(stream.clone(), message));
+            // let _ = sender.send(Event::Message(stream.clone(), message));
             } else {
                 log::warn!("Received invalid message. Skipping");
                 yield_now();
@@ -87,7 +93,10 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 match message {
                     UserMessage::Auth { nick } => {
                         if state.get_client_by_name(&nick).is_some() || nick == "NOTICE" {
-                            let _ = Message::send(&mut *client.stream.lock(), ErrorMessage::NickNameInUse);
+                            let _ = Message::send(
+                                &mut *client.stream.lock(),
+                                ErrorMessage::NickNameInUse,
+                            );
                         } else {
                             log::info!("[Client: {}] Now authenticated as {}", client, nick);
 
@@ -98,7 +107,9 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                                 addr: *user.addr(),
                             };
 
-                            sender.send(Event::Authenticated(client.clone())).expect("Client authenticated");
+                            sender
+                                .send(Event::Authenticated(client.clone()))
+                                .expect("Client authenticated");
                         }
                     }
 
@@ -115,7 +126,11 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             }
 
             _ => {
-                log::warn!("[Client: {}] Invalid message received: {:#?}", client, message);
+                log::warn!(
+                    "[Client: {}] Invalid message received: {:#?}",
+                    client,
+                    message
+                );
                 log::warn!("[Client: {}] Skipping.", client);
             }
         }
@@ -127,13 +142,12 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 match &message {
                     UserMessage::Auth { nick } => {
                         if state.get_client_by_name(&nick).is_some() {
-                            let _ = Message::send(&mut *client.stream.lock(), ErrorMessage::NickNameInUse);
-                        } else {
-                            log::info!(
-                                "[Client: {}] Changing nick to {}",
-                                client,
-                                nick
+                            let _ = Message::send(
+                                &mut *client.stream.lock(),
+                                ErrorMessage::NickNameInUse,
                             );
+                        } else {
+                            log::info!("[Client: {}] Changing nick to {}", client, nick);
 
                             let mut user = client.user.write();
 
@@ -145,19 +159,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                     }
 
                     UserMessage::Leave { message } => {
-                        log::info!(
-                            "[Client: {}] Is leaving ({:?})",
-                            client,
-                            message
-                        );
-
-                        let mut clients = state.clients.lock();
-                        let client_pos = clients
-                            .iter()
-                            .position(|client_x| client == client_x)
-                            .expect("Client in list");
-
-                        clients.remove(client_pos);
+                        log::info!("[Client: {}] Is leaving ({:?})", client, message);
                     }
 
                     UserMessage::RequestUserList => {
@@ -166,7 +168,10 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                             .filter_map(|client| client.user.read().nick().map(ToOwned::to_owned))
                             .collect::<Vec<_>>();
 
-                        let _ = Message::send(&mut *client.stream.lock(), ServerMessage::UserList { users });
+                        let _ = Message::send(
+                            &mut *client.stream.lock(),
+                            ServerMessage::UserList { users },
+                        );
 
                         broadcast = false;
                     }
@@ -182,7 +187,11 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
             }
 
             _ => {
-                log::warn!("[Client: {}] Invalid message received: {:#?}", client, message);
+                log::warn!(
+                    "[Client: {}] Invalid message received: {:#?}",
+                    client,
+                    message
+                );
                 log::warn!("[Client: {}] Skipping.", client);
             }
         }
