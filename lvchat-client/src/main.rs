@@ -108,17 +108,30 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
     *state.input.write() = (*input_state).clone();
 
     if input_state.is_sent() {
-        let _ = Message::send(
-            &mut *state.stream.lock(),
-            UserMessage::Text {
-                message: input_state.trim().to_string(),
-            },
-        );
+        match (*input_state).as_str() {
+            "/quit" => {
+                let _ = Message::send(
+                    &mut *state.stream.lock(),
+                    UserMessage::Leave { message: None },
+                );
 
-        state
-            .messages
-            .write()
-            .push(view::Message::user(&state.config.nick, input_state.trim()));
+                std::process::exit(0);
+            }
+
+            _ => {
+                let _ = Message::send(
+                    &mut *state.stream.lock(),
+                    UserMessage::Text {
+                        message: input_state.trim().to_string(),
+                    },
+                );
+
+                state
+                    .messages
+                    .write()
+                    .push(view::Message::user(&state.config.nick, input_state.trim()));
+            }
+        }
     }
 }
 
@@ -173,6 +186,14 @@ fn handle_server_message(state: &State, message: Message) {
                         .messages
                         .write()
                         .push(view::Message::notice(format!("User left: {}", user)));
+
+                    let mut users = state.users.write();
+                    let pos = users
+                        .iter()
+                        .position(|user_x| user_x == &user)
+                        .expect("User position (leaving)");
+
+                    users.remove(pos);
                 }
 
                 UserMessage::RequestUserList => {}
