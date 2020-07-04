@@ -33,8 +33,8 @@ fn main() {
     'main: loop {
         // balance load. Rendering at least each 750ms(?) or so to make responses smoother to view
         for event_rx in &events {
-            match event_rx.try_recv() {
-                Ok(event) => match event {
+            while let Ok(event) = event_rx.try_recv() {
+                match event {
                     Event::UserInput(input) => {
                         handle_user_input(&state, input);
                     }
@@ -44,14 +44,12 @@ fn main() {
                     Event::Disconnected => {
                         break 'main;
                     }
-                },
+                }
 
-                _ => (),
+                view.update(&state);
+                view.render(&state);
             }
         }
-
-        view.update(&state);
-        view.render(&state);
     }
 }
 
@@ -72,12 +70,10 @@ fn init_logger(config: &Config) {
         } else {
             logger
         }
+    } else if config.quiet {
+        logger.do_not_log()
     } else {
-        if config.quiet {
-            logger.do_not_log()
-        } else {
-            logger
-        }
+        logger
     };
 
     logger.start().unwrap();
@@ -105,15 +101,17 @@ fn connect(config: &Config) -> TcpStream {
 }
 
 fn handle_user_input(state: &State, input_state: UserInputState) {
-    *state.input.write() = (*input_state).clone();
-
     if input_state.is_sent() {
+        state.input.write().clear();
+
         match (*input_state).as_str() {
             "/quit" => {
                 let _ = Message::send(
                     &mut *state.stream.lock(),
                     UserMessage::Leave { message: None },
                 );
+
+                let _ = state.stream.lock().shutdown(std::net::Shutdown::Both);
 
                 std::process::exit(0);
             }
@@ -132,6 +130,8 @@ fn handle_user_input(state: &State, input_state: UserInputState) {
                     .push(view::Message::user(&state.config.nick, input_state.trim()));
             }
         }
+    } else {
+        *state.input.write() = (*input_state).clone();
     }
 }
 

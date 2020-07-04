@@ -23,15 +23,7 @@ impl View {
         let _ = self.terminal.clear();
     }
 
-    pub fn update(&mut self, state: &State) {
-        let _ = self.terminal.set_cursor(
-            state.input.read().len() as u16,
-            self.terminal
-                .size()
-                .map(|size| size.height - 2)
-                .unwrap_or_default(),
-        );
-    }
+    pub fn update(&mut self, state: &State) {}
 
     pub fn render(&mut self, state: &State) {
         let user_list_items = state.users.read().iter().cloned().collect::<Vec<_>>();
@@ -79,6 +71,14 @@ impl View {
             frame.render_widget(message_list_view, top_right);
             frame.render_widget(message_input_view, bottom.clone());
         });
+
+        let _ = self.terminal.set_cursor(
+            state.input.read().len() as u16,
+            self.terminal
+                .size()
+                .map(|size| size.height - 2)
+                .unwrap_or_default(),
+        );
     }
 }
 
