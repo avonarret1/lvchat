@@ -8,6 +8,7 @@ use lvchat_core::User;
 pub struct Client {
     pub stream: Arc<Mutex<TcpStream>>,
     pub user: Arc<RwLock<User>>,
+    pub active: Arc<RwLock<bool>>,
 }
 
 impl Client {
@@ -17,6 +18,7 @@ impl Client {
         Client {
             stream: Arc::new(Mutex::new(stream)),
             user: Arc::new(RwLock::new(User::Ghost { addr })),
+            active: Arc::new(RwLock::new(true)),
         }
     }
 }

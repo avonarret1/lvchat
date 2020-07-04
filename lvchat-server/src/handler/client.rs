@@ -20,7 +20,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
         .send(Event::Accepted(client.clone()))
         .expect("Client accepted");
 
-    'main: loop {
+    'main: while *client.active.read() {
         if let Some(mut client_stream) = client.stream.try_lock() {
             match client_stream.read(&mut buffer) {
                 Ok(0) => (),
@@ -160,6 +160,8 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
 
                     UserMessage::Leave { message } => {
                         log::info!("[Client: {}] Is leaving ({:?})", client, message);
+
+                        *client.active.write() = false;
                     }
 
                     UserMessage::RequestUserList => {
