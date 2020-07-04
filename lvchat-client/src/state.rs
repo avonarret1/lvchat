@@ -4,7 +4,7 @@ use parking_lot::{Mutex, RwLock};
 
 use crate::{
     config::Config,
-    view::{Message, User}
+    view::{Message, User},
 };
 
 #[derive(Debug, Clone)]

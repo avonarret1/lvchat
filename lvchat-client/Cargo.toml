@@ -7,16 +7,20 @@ edition = "2018"
 [dependencies]
 lvchat-core = { path = "../lvchat-core" }
 
-tui = { version = "0.9", default-features = false, features = ["crossterm"] }
+log = "*"
+flexi_logger = "0.15"
+
+structopt = "0.3"
 
 flume = "0.7"
 parking_lot = "0.11"
 
 chrono = { version = "0.4", features = ["serde"] }
-chrono-humanize = "^0.0.11"
 
-structopt = "0.3"
-cfg-if = "0.1"
+tui = { version = "0.9", default-features = false, features = ["crossterm"] }
 
-log = "*"
-flexi_logger = "0.15"
+#[target.'cfg(target_os = "windows")'.dependencies]
+#tui = { version = "0.9", default-features = false, features = ["crossterm"] }
+
+#[target.'cfg(all(not(target_os = "windows")))'.dependencies]
+#tui = "0.9"

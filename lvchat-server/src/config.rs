@@ -24,18 +24,16 @@ pub struct Config {
 
 impl Config {
     pub fn init() -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(debug_assertions)] {
-                Config {
-                    verbose: true,
-                    debug: true,
-                    quiet: false,
-                    port: 5050,
-                    logs_path: None,//Some(PathBuf::from("logs")),
-                }
-            } else {
-                <Self as StructOpt>::from_args()
+        if cfg!(debug_assertions) {
+            Config {
+                verbose: true,
+                debug: true,
+                quiet: false,
+                port: 5050,
+                logs_path: None, //Some(PathBuf::from("logs")),
             }
+        } else {
+            <Self as StructOpt>::from_args()
         }
     }
 }

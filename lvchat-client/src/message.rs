@@ -7,9 +7,9 @@ pub struct Message {
 
 impl Message {
     pub fn user<S, T>(source: S, text: T) -> Self
-    where
-        S: AsRef<str>,
-        T: AsRef<str>,
+        where
+            S: AsRef<str>,
+            T: AsRef<str>,
     {
         Self {
             ts: chrono::Utc::now(),
@@ -30,5 +30,11 @@ impl Message {
 impl From<(&str, &str)> for Message {
     fn from(data: (&str, &str)) -> Self {
         Self::user(data.0, data.1)
+    }
+}
+
+impl ToString for Message {
+    fn to_string(&self) -> String {
+        format!("[{}] <{}> {}", self.ts, self.source, self.text)
     }
 }

@@ -1,27 +1,26 @@
-mod message;
-
 use std::io::{stdout, Stdout};
 
 use tui::{
-    backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     terminal::Terminal,
-    widgets::{Block, Borders, List, Paragraph, Text, Widget},
+    widgets::{Block, Borders, List, Paragraph, Text},
 };
 
+pub use crate::message::Message;
 use crate::state::State;
-
-pub use self::message::Message;
 
 pub type User = String;
 
 pub struct View {
-    terminal: Terminal<CrosstermBackend<Stdout>>,
+    #[cfg(target_os = "windows")]
+    terminal: Terminal<tui::backend::CrosstermBackend<Stdout>>,
+    #[cfg(not(target_os = "windows"))]
+    terminal: Terminal<tui::backend::TermionBackend<Stdout>>,
 }
 
 impl View {
     pub fn clear(&mut self) {
-        self.terminal.clear();
+        let _ = self.terminal.clear();
     }
 
     pub fn update(&mut self, state: &State) {
@@ -42,14 +41,7 @@ impl View {
         let message_list_view = List::new(
             message_list_items
                 .iter()
-                .map(|message| {
-                    format!(
-                        "<{} [{}]> {}",
-                        message.source,
-                        chrono_humanize::HumanTime::from(message.ts),
-                        message.text,
-                    )
-                })
+                .map(ToString::to_string)
                 .map(Text::raw),
         )
         .block(Block::default().borders(Borders::LEFT));
@@ -92,8 +84,19 @@ impl View {
 
 impl Default for View {
     fn default() -> Self {
-        let stdout = stdout();
-        let backend = CrosstermBackend::new(stdout);
+        let backend = {
+            let stdout = stdout();
+
+            #[cfg(target_os = "windows")]
+            {
+                tui::backend::CrosstermBackend::new(stdout)
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                tui::backend::TermionBackend::new(stdout)
+            }
+        };
+
         let terminal = Terminal::new(backend).unwrap();
 
         View { terminal }

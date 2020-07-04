@@ -1,13 +1,9 @@
 use std::{
     io::{ErrorKind, Read, Write},
-    net::TcpStream,
-    sync::Arc,
     thread::yield_now,
 };
 
 use flume::Sender;
-
-use parking_lot::Mutex;
 
 use lvchat_core::*;
 
@@ -20,7 +16,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
     log::trace!("Started client handler thread");
     log::info!("[Client: {}] Connected.", client);
 
-    sender.send(Event::Accepted(client.clone()));
+    sender.send(Event::Accepted(client.clone())).expect("Client accepted");
 
     'main: loop {
         if let Some(mut client_stream) = client.stream.try_lock() {
@@ -52,7 +48,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
         }
 
         if let Some(eol) = data.windows(2).position(|w| w == b"\r\n") {
-            let raw = data.drain(..eol+2).collect::<Vec<_>>();
+            let raw = data.drain(..eol + 2).collect::<Vec<_>>();
             let message = Message::from_bytes(&raw[..eol]);
 
             if let Some(message) = message {
@@ -60,7 +56,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
 
                 handle_message(&state, &client, message, sender.clone());
 
-            // let _ = sender.send(Event::Message(stream.clone(), message));
+                // let _ = sender.send(Event::Message(stream.clone(), message));
             } else {
                 log::warn!("Received invalid message. Skipping");
                 yield_now();
@@ -68,7 +64,7 @@ pub fn handle(state: State, client: Client, sender: Sender<Event>) {
         }
     }
 
-    sender.send(Event::Dropped(client));
+    sender.send(Event::Dropped(client)).expect("Client dropped");
 
     log::trace!("Stopping client handler thread");
 }
@@ -91,10 +87,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 match message {
                     UserMessage::Auth { nick } => {
                         if state.get_client_by_name(&nick).is_some() || nick == "NOTICE" {
-                            client
-                                .stream
-                                .lock()
-                                .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
+                            let _ = Message::send(&mut *client.stream.lock(), ErrorMessage::NickNameInUse);
                         } else {
                             log::info!("[Client: {}] Now authenticated as {}", client, nick);
 
@@ -105,7 +98,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                                 addr: *user.addr(),
                             };
 
-                            sender.send(Event::Authenticated(client.clone()));
+                            sender.send(Event::Authenticated(client.clone())).expect("Client authenticated");
                         }
                     }
 
@@ -134,10 +127,7 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                 match &message {
                     UserMessage::Auth { nick } => {
                         if state.get_client_by_name(&nick).is_some() {
-                            client
-                                .stream
-                                .lock()
-                                .write(&Message::Error(ErrorMessage::NickNameInUse).to_bytes());
+                            let _ = Message::send(&mut *client.stream.lock(), ErrorMessage::NickNameInUse);
                         } else {
                             log::info!(
                                 "[Client: {}] Changing nick to {}",
@@ -176,15 +166,12 @@ fn handle_message(state: &State, client: &Client, message: Message, sender: Send
                             .filter_map(|client| client.user.read().nick().map(ToOwned::to_owned))
                             .collect::<Vec<_>>();
 
-                        let response = Message::Server(ServerMessage::UserList { users });
-                        client.stream.lock().write(&response.to_bytes());
+                        let _ = Message::send(&mut *client.stream.lock(), ServerMessage::UserList { users });
 
                         broadcast = false;
                     }
 
-                    UserMessage::Text { message } => {
-
-                    }
+                    UserMessage::Text { message: _ } => {}
 
                     UserMessage::Voice { stream: _ } => {}
                 }

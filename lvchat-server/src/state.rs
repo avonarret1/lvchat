@@ -1,7 +1,6 @@
 use std::{
-    net::{SocketAddr, TcpListener},
+    net::SocketAddr,
     sync::Arc,
-    thread,
 };
 
 use parking_lot::Mutex;

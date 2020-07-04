@@ -1,23 +1,17 @@
-#![allow(unused_variables, unused_imports)]
+use std::{net::TcpStream, process::exit};
+
+use lvchat_core::{Message, UserMessage};
+
+use crate::{
+    config::Config, event::Event, io::user::State as UserInputState, state::State, view::View,
+};
 
 mod config;
 mod event;
 mod io;
+mod message;
 mod state;
 mod view;
-
-use std::{
-    io::{Read, Write},
-    net::TcpStream,
-    process::exit,
-    sync::Arc,
-    thread::spawn,
-    time::Instant,
-};
-
-use parking_lot::Mutex;
-use lvchat_core::{Message, UserMessage};
-use crate::{config::Config, state::State, view::View, event::Event, io::user::State as UserInputState};
 
 fn main() {
     let config = Config::new();
@@ -31,7 +25,7 @@ fn main() {
 
     let events = [
         io::user::capture(),
-        io::server::capture(state.stream.clone())
+        io::server::capture(state.stream.clone()),
     ];
 
     view.clear();
@@ -46,11 +40,11 @@ fn main() {
                     }
                     Event::Message(message) => {
                         handle_server_message(&state, message);
-                    },
+                    }
                     Event::Disconnected => {
                         break 'main;
                     }
-                }
+                },
 
                 _ => (),
             }
@@ -90,8 +84,6 @@ fn init_logger(config: &Config) {
 }
 
 fn connect(config: &Config) -> TcpStream {
-    use lvchat_core::UserMessage;
-
     println!(
         "Trying to connect to remote host ({}:{})",
         config.host, config.port
@@ -112,23 +104,21 @@ fn connect(config: &Config) -> TcpStream {
     }
 }
 
-
 fn handle_user_input(state: &State, input_state: UserInputState) {
-    match input_state {
-        UserInputState::Edit(input) => {
-            *state.input.write() = input;
-        }
-        UserInputState::Sent(input) => {
-            *state.input.write() = input.clone();
+    *state.input.write() = (*input_state).clone();
 
-            Message::send(&mut *state.stream.lock(), UserMessage::Text {
-                message: input.trim().to_string(),
-            });
+    if input_state.is_sent() {
+        let _ = Message::send(
+            &mut *state.stream.lock(),
+            UserMessage::Text {
+                message: input_state.trim().to_string(),
+            },
+        );
 
-            state.messages.write().push(view::Message::user(&state.config.nick, input.trim()));
-
-            state.input.write().clear();
-        }
+        state
+            .messages
+            .write()
+            .push(view::Message::user(&state.config.nick, input_state.trim()));
     }
 }
 
@@ -136,54 +126,70 @@ fn handle_server_message(state: &State, message: Message) {
     use lvchat_core::*;
 
     match message {
-        Message::User(user_message) => {
-            todo!("Reject")
-        }
+        Message::User(_user_message) => todo!("Reject"),
 
         Message::Server(server_message) => match server_message {
             ServerMessage::Auth => {
-                Message::send(&mut *state.stream.lock(), UserMessage::Auth { nick: state.config.nick.clone() });
+                let _ = Message::send(
+                    &mut *state.stream.lock(),
+                    UserMessage::Auth {
+                        nick: state.config.nick.clone(),
+                    },
+                );
             }
 
             ServerMessage::Notice { message } => {
                 state.messages.write().push(view::Message::notice(message));
             }
 
-            ServerMessage::Refer { user, message: user_message } => {
-                match user_message {
-                    UserMessage::Auth { nick } => {
-                        if user != nick {
-                            state.messages.write().push(view::Message::notice(format!("{} changed nick to {}", user, nick)));
+            ServerMessage::Refer {
+                user,
+                message: user_message,
+            } => match user_message {
+                UserMessage::Auth { nick } => {
+                    if user != nick {
+                        state.messages.write().push(view::Message::notice(format!(
+                            "{} changed nick to {}",
+                            user, nick
+                        )));
 
-                            for user in state.users.write().iter_mut() {
-                                if user == &nick {
-                                    *user = nick.clone();
-                                }
+                        for user in state.users.write().iter_mut() {
+                            if user == &nick {
+                                *user = nick.clone();
                             }
-                        } else {
-                            state.messages.write().push(view::Message::notice(format!("User joined: {}", nick)));
-
-                            state.users.write().push(nick);
                         }
-                    }
+                    } else {
+                        state
+                            .messages
+                            .write()
+                            .push(view::Message::notice(format!("User joined: {}", nick)));
 
-                    UserMessage::Leave { message } => {
-                        state.messages.write().push(view::Message::notice(format!("User left: {}", user)));
+                        state.users.write().push(nick);
                     }
-
-                    UserMessage::RequestUserList => {}
-                    UserMessage::Text { message } => {
-                        state.messages.write().push(view::Message::user(user, message));
-                    }
-                    UserMessage::Voice { .. } => {}
                 }
-            }
+
+                UserMessage::Leave { message: _ } => {
+                    state
+                        .messages
+                        .write()
+                        .push(view::Message::notice(format!("User left: {}", user)));
+                }
+
+                UserMessage::RequestUserList => {}
+                UserMessage::Text { message } => {
+                    state
+                        .messages
+                        .write()
+                        .push(view::Message::user(user, message));
+                }
+                UserMessage::Voice { .. } => {}
+            },
             ServerMessage::UserList { mut users } => {
                 users.insert(0, state.config.nick.clone());
 
                 *state.users.write() = users;
             }
-        }
+        },
 
         Message::Error(error_message) => match error_message {
             ErrorMessage::AlreadyConnected => {
@@ -194,7 +200,6 @@ fn handle_server_message(state: &State, message: Message) {
                 eprintln!("Someone with that nickname is already connected.");
                 std::process::exit(0);
             }
-        }
+        },
     }
 }
-

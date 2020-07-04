@@ -5,14 +5,10 @@ authors = ["avonarret"]
 edition = "2018"
 
 [dependencies]
-#async-std = "1.6"
-#futures = "0.3"
 flume = "0.7"
 parking_lot = "0.10"
 
 structopt = "0.3"
-
-cfg-if = "0.1"
 
 log = "*"
 flexi_logger = "0.15"

@@ -1,14 +1,10 @@
 use std::{
-    io::{Read, Write},
-    net::TcpStream,
-    process::exit,
-    sync::Arc,
-    thread::{spawn, JoinHandle},
-    time::Instant,
+    io::Read,
+    ops::{Deref, DerefMut},
+    thread::spawn,
 };
 
-use flume::{bounded, Receiver};
-use std::ops::Deref;
+use flume::Receiver;
 
 use crate::event::Event;
 
@@ -19,19 +15,25 @@ pub enum State {
 }
 
 impl State {
-    fn is_sent(&self) -> bool {
+    pub fn is_sent(&self) -> bool {
         matches!(self, Self::Sent(_))
     }
 }
 
 impl Deref for State {
-    type Target = str;
+    type Target = String;
 
     fn deref(&self) -> &Self::Target {
         match self {
-            State::Edit(data) | State::Sent(data) => {
-                data.as_str()
-            },
+            State::Edit(data) | State::Sent(data) => data,
+        }
+    }
+}
+
+impl DerefMut for State {
+    fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
+        match self {
+            State::Edit(ref mut data) | State::Sent(ref mut data) => data,
         }
     }
 }
@@ -46,7 +48,7 @@ pub fn capture() -> Receiver<Event> {
             match std::io::stdin().bytes().take(1).last().unwrap() {
                 Ok(any) => match any {
                     b'\n' => {
-                        tx.send(State::Sent(input.clone()).into());
+                        let _ = tx.send(State::Sent(input.clone()).into());
 
                         input.clear();
 
@@ -70,7 +72,7 @@ pub fn capture() -> Receiver<Event> {
                 _ => (),
             }
 
-            tx.send(State::Edit(input.clone()).into());
+            let _ = tx.send(State::Edit(input.clone()).into());
         }
     });
 

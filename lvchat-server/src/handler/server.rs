@@ -1,13 +1,10 @@
 use std::{
-    io::{self, ErrorKind, Write},
+    io::ErrorKind,
     net::TcpStream,
-    sync::Arc,
     thread::spawn,
 };
 
 use flume::{Receiver, Sender, TryRecvError};
-
-use parking_lot::Mutex;
 
 use lvchat_core::*;
 
@@ -20,7 +17,7 @@ pub fn handle(state: State, client_queue_rx: Receiver<TcpStream>) {
 
     loop {
         match client_queue_rx.try_recv() {
-            Ok(mut client) => {
+            Ok(client) => {
                 handle_incoming_client(&state, client, &client_event_tx);
             }
 
@@ -54,11 +51,12 @@ fn handle_event(state: &State, event: Event) {
         Event::Accepted(client) => {
             log::debug!("[Client: {}] Sending authentication request", client);
 
-            Message::send(&mut *client.stream.lock(), ServerMessage::Auth);
+            let _ = Message::send(&mut *client.stream.lock(), ServerMessage::Auth);
         }
         Event::Authenticated(client) => {
             log::debug!("[Client: {}] Sending welcome notice", client);
-            Message::send(&mut *client.stream.lock(), ServerMessage::Notice { message: format!("Welcome!") });
+
+            let _ = Message::send(&mut *client.stream.lock(), ServerMessage::Notice { message: format!("Welcome!") });
 
             let users = state.clients
                 .lock()
@@ -69,7 +67,7 @@ fn handle_event(state: &State, event: Event) {
 
             log::debug!("[Client: {}] Sending user list: {:#?}", client, users);
 
-            Message::send(&mut *client.stream.lock(), ServerMessage::UserList {
+            let _ = Message::send(&mut *client.stream.lock(), ServerMessage::UserList {
                 users,
             });
         }
@@ -89,7 +87,7 @@ fn handle_event(state: &State, event: Event) {
 fn handle_incoming_client(state: &State, mut client_stream: TcpStream, client_tx: &Sender<Event>) {
     let addr = client_stream.peer_addr().unwrap();
 
-    client_stream.set_nonblocking(true);
+    let _ = client_stream.set_nonblocking(true);
 
     log::info!("Processing client: {}", addr.ip());
 
@@ -109,7 +107,7 @@ fn handle_incoming_client(state: &State, mut client_stream: TcpStream, client_tx
                 }
 
                 _ => {
-                    client_stream.write(&Message::Error(ErrorMessage::AlreadyConnected).to_bytes());
+                    let _ = Message::send(&mut client_stream, ErrorMessage::AlreadyConnected);
 
                     log::info!("Client ({}) was dropped: Already joined.", addr.ip());
                     return;

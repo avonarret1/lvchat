@@ -2,6 +2,7 @@ use std::{
     io::{self, Write},
     net::TcpStream,
 };
+
 use serde::{Deserialize, Serialize};
 
 /// Enumeration of the network protocol lvchat is using
