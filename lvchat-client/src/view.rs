@@ -12,10 +12,10 @@ use crate::state::State;
 pub type User = String;
 
 pub struct View {
-    #[cfg(target_os = "windows")]
+    //#[cfg(target_os = "windows")]
     terminal: Terminal<tui::backend::CrosstermBackend<Stdout>>,
-    #[cfg(not(target_os = "windows"))]
-    terminal: Terminal<tui::backend::TermionBackend<Stdout>>,
+    //#[cfg(not(target_os = "windows"))]
+    //terminal: Terminal<tui::backend::TermionBackend<Stdout>>,
 }
 
 impl View {
@@ -87,14 +87,14 @@ impl Default for View {
         let backend = {
             let stdout = stdout();
 
-            #[cfg(target_os = "windows")]
-            {
-                tui::backend::CrosstermBackend::new(stdout)
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                tui::backend::TermionBackend::new(stdout)
-            }
+            //#[cfg(target_os = "windows")]
+            //{
+            tui::backend::CrosstermBackend::new(stdout)
+            //}
+            //#[cfg(not(target_os = "windows"))]
+            //{
+            //    tui::backend::TermionBackend::new(stdout)
+            //}
         };
 
         let terminal = Terminal::new(backend).unwrap();
